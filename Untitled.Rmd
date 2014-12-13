@@ -1,0 +1,76 @@
+---
+title: "Practical Machine Learning - Report"
+output: html_document
+---
+
+##Background from Coursera Website##
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).  
+
+##Aim##
+The aim of this project is to predict the manner in which the test subjects did the exercises, using a model based on the training set.
+
+##Data Processing##
+The test and training data was downloaded from Coursera and saved in the "Downloads" directory. The datasets were loaded into R Studio using the following code:
+```{r}
+train<-read.csv("pml-training.csv")
+summary(train)
+```
+
+The summary of the training dataset shows that for some columns there are lots of missing values (NA's), and for others a numeric factor has been imported as a factor (#DIV/0!). To correct for this, I reimport the data, removing the #DIV/0! and ensure that all columns contain numeric elements:
+
+```{r, warning=FALSE}
+data <- read.csv("pml-training.csv", na.strings=c("#DIV/0!") )
+cData <- data
+for(i in c(8:ncol(cData)-1)) {cData[,i] = as.numeric(as.character(cData[,i]))}
+```
+
+I then select only columns without missing data values (NA's) and with meaningful data values (i.e. the name of the subject and the timestamps, which will not be used to make the predictor model):
+```{r, warning=FALSE}
+featuresnames <- colnames(cData[colSums(is.na(cData)) == 0])[-(1:7)]
+features <- cData[featuresnames]
+```
+
+##Cross-validation##
+I now need to partition the remaining data into test and training data, so that I can test my own model before using it on the final test data supplied by Coursera. I want an 4:1 split between my training and test set, so set p=0.8:
+
+```{r, warning=FALSE}
+library(caret)
+
+data2 <- createDataPartition(y=features$classe, p=0.8, list=FALSE )
+training <- features[data2,]
+testing <- features[-data2,]
+```
+The data was partioned by the classe variable to ensure the training set and test set contain examples of each class. 
+
+
+##Building a model##
+
+I have decided to use the Random Forest model to develop my initial predictions for this project.  
+
+```{r}
+library(randomForest)
+library(e1071)
+randomforest <- randomForest(classe~., data=training)
+```
+
+And now to plot a confusion matrix to get an idea of the error rate of this method:
+```{r}
+print(randomforest)
+```
+This simple random forest model seems to accurately classify the majority of activities as shown by the low class errors.
+
+##Testing##
+Lastly, I load the Coursera test data and pre-process it as before:
+```{r, warning=FALSE}
+test <- read.csv("pml-testing.csv", na.strings=c("#DIV/0!") )
+ctest <- test
+for(i in c(8:ncol(ctest)-1)) {ctest[,i] = as.numeric(as.character(ctest[,i]))}
+testfeaturesnames <- colnames(ctest[colSums(is.na(ctest)) == 0])[-(1:7)]
+testfeatures <- ctest[testfeaturesnames]
+```
+And use my model to predict the activity of each of the test data sets:
+```{r}
+predictions = predict(randomforest,testfeatures)
+predictions
+```
+These results will now be submitted to Coursera.
